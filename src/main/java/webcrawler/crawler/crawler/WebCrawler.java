@@ -40,6 +40,11 @@ public class WebCrawler {
                 if (current.getDepth() > maxDepth) continue;
 
                 LOG.info("Visited [{}]: {}", current.getDepth(), current.getUrl());
+                if (!isHtmlLink(current.getUrl())) {
+                    LOG.debug("Skipping non-HTML URL: {}", current.getUrl());
+                    continue;
+                }
+
                 List<String> links = extractLinks(current.getUrl());
 
                 if(!links.isEmpty()) {
@@ -48,15 +53,26 @@ public class WebCrawler {
 
                 for (String link : links) {
                     URI linkUri = normalize(link);
-                    if(linkUri == null | !linkUri.getHost().equals(domain)) continue;
 
-                    String normalizedUrl = link.toString();
-                    if(!visitedUrls.contains(normalizedUrl)) {
+                    if (linkUri == null) {
+                        LOG.debug("Skipping null or invalid link: {}", link);
+                        continue;
+                    }
+
+                    String host = linkUri.getHost();
+                    if (host == null || !host.equals(domain)) {
+                        LOG.debug("Skipping link from different domain or null host: {}", linkUri);
+                        continue;
+                    }
+
+                    String normalizedUrl = linkUri.toString();
+                    if (!visitedUrls.contains(normalizedUrl)) {
                         visitedUrls.add(normalizedUrl);
                         queue.offer(new UrlDepthPair(normalizedUrl, current.getDepth() + 1));
-                        System.out.println(" - " + normalizedUrl);
+                        LOG.debug("Queueing: {}", normalizedUrl);
                     }
                 }
+
             }
 
         } catch (Exception e) {
@@ -88,9 +104,24 @@ public class WebCrawler {
                     links.add(href);
                 }
             }
+        } catch (org.jsoup.HttpStatusException e) {
+            LOG.warn("HTTP error {} fetching URL: {}", e.getStatusCode(), url);
         } catch (IOException e) {
-            LOG.error("Something went wrong when trying to extract links", e);
+            LOG.warn("I/O error fetching URL: {} - {}", url, e.getMessage());
+
+        } catch (Exception e) {
+            LOG.error("Unexpected error while extracting links from URL: {}", url, e);
         }
         return links;
+    }
+
+    private static final List<String> BLOCKED_EXTENSIONS = List.of(
+            ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".webp",
+            ".pdf", ".zip", ".rar", ".exe", ".tar", ".gz", ".mp3", ".mp4", ".avi"
+    );
+
+    private boolean isHtmlLink(String url) {
+        String lower = url.toLowerCase();
+        return BLOCKED_EXTENSIONS.stream().noneMatch(lower::endsWith);
     }
 }
