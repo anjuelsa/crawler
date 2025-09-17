@@ -3,6 +3,8 @@ package webcrawler.crawler.crawler;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import webcrawler.crawler.model.UrlDepthPair;
 
 import java.io.IOException;
@@ -11,6 +13,7 @@ import java.net.URISyntaxException;
 import java.util.*;
 
 public class WebCrawler {
+    private static final Logger LOG = LoggerFactory.getLogger(WebCrawler.class);
 
     // takes url -> traverse using bfs/dfs
     // max depth 2
@@ -25,7 +28,7 @@ public class WebCrawler {
         try {
             URI startUri = normalize(startUrl);
             if (startUri == null) {
-                System.err.println("Start url is null");
+                LOG.error("Start url is null");
                 return;
             }
             String domain = startUri.getHost();
@@ -36,11 +39,11 @@ public class WebCrawler {
                 UrlDepthPair current = queue.poll();
                 if (current.getDepth() > maxDepth) continue;
 
-                System.out.println("\nVisited: " + current.getUrl());
+                LOG.info("Visited [{}]: {}", current.getDepth(), current.getUrl());
                 List<String> links = extractLinks(current.getUrl());
 
                 if(!links.isEmpty()) {
-                    System.out.println("Links found");
+                    LOG.info("Links found");
                 }
 
                 for (String link : links) {
@@ -57,7 +60,7 @@ public class WebCrawler {
             }
 
         } catch (Exception e) {
-            System.err.println("Start url is error");
+            LOG.error("Something went wrong when trying to crawl urls", e);
 
         }
     }
@@ -86,7 +89,7 @@ public class WebCrawler {
                 }
             }
         } catch (IOException e) {
-            System.err.println("Extract links error: " + url);
+            LOG.error("Something went wrong when trying to extract links", e);
         }
         return links;
     }
